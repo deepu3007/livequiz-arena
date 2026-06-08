@@ -9,6 +9,22 @@ from app.services.room_manager import room_manager
 
 router = APIRouter(tags=["WebSocket"])
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def ensure_utc_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+
+def is_question_expired(question: dict, question_started_at: datetime) -> bool:
+    started_at = ensure_utc_aware(question_started_at)
+    elapsed_seconds = (utc_now() - started_at).total_seconds()
+
+    return elapsed_seconds > question["time_limit_seconds"]
 
 def remove_correct_answer(question: dict) -> dict:
     return {
@@ -83,7 +99,9 @@ async def send_current_question(room_code: str, session: dict, quiz: dict):
             "question_index": current_index,
             "total_questions": len(quiz["questions"]),
             "question": remove_correct_answer(question),
-            "sent_at": datetime.now(timezone.utc)
+            "question_started_at": session.get("current_question_started_at"),
+            "server_time": utc_now(),
+            "sent_at": utc_now()
         }
     })
 
@@ -205,17 +223,19 @@ async def websocket_endpoint(
                         }
                     })
                     continue
+                question_started_at = utc_now()
 
                 await db.sessions.update_one(
-                    {"room_code": room_code},
-                    {
-                        "$set": {
-                            "status": "live",
-                            "current_question_index": 0,
-                            "started_at": datetime.now(timezone.utc)
+                        {"room_code": room_code},
+                        {
+                            "$set": {
+                                "status": "live",
+                                "current_question_index": 0,
+                                "current_question_started_at": question_started_at,
+                                "started_at": question_started_at
+                            }
                         }
-                    }
-                )
+                    )
 
                 updated_session = await db.sessions.find_one({"room_code": room_code})
 
@@ -285,11 +305,14 @@ async def websocket_endpoint(
 
                     continue
 
+                question_started_at = utc_now()
+
                 await db.sessions.update_one(
                     {"room_code": room_code},
                     {
                         "$set": {
-                            "current_question_index": next_index
+                            "current_question_index": next_index,
+                            "current_question_started_at": question_started_at
                         }
                     }
                 )
@@ -343,6 +366,28 @@ async def websocket_endpoint(
                     continue
 
                 current_question = quiz["questions"][current_index]
+                question_started_at = session.get("current_question_started_at")
+
+                if question_started_at is None:
+                    await room_manager.send_to_websocket(websocket, {
+                        "type": "error",
+                        "payload": {
+                            "message": "Question timer was not started"
+                        }
+                    })
+                    continue
+
+                if is_question_expired(current_question, question_started_at):
+                    await room_manager.send_to_websocket(websocket, {
+                        "type": "answer_rejected",
+                        "payload": {
+                            "question_id": question_id,
+                            "reason": "time_expired",
+                            "message": "Time is up for this question",
+                            "sent_at": utc_now()
+                        }
+                    })
+                    continue
 
                 if question_id != current_question["id"]:
                     await room_manager.send_to_websocket(websocket, {
