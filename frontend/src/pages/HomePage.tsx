@@ -5,7 +5,6 @@ import {
   FaEdit,
   FaGamepad,
   FaInfinity,
-  FaRocket,
   FaTrophy,
 } from "react-icons/fa";
 import Navbar from "../components/Navbar";

@@ -64,14 +64,22 @@ const arenaTheme = createTheme({
           boxShadow: "none",
           "&:hover": { boxShadow: "none" },
         },
-        containedPrimary: {
-          background: "#1A56DB",
-        },
-        containedSecondary: {
-          background: "#F5C400",
-          color: "#06091A",
-        },
       },
+      variants: [
+        {
+          props: { variant: "contained", color: "primary" },
+          style: {
+            background: "#1A56DB",
+          },
+        },
+        {
+          props: { variant: "contained", color: "secondary" },
+          style: {
+            background: "#F5C400",
+            color: "#06091A",
+          },
+        },
+      ],
     },
     MuiTextField: {
       defaultProps: { variant: "outlined" },

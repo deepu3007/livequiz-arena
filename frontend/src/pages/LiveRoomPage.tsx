@@ -24,7 +24,7 @@ function LiveRoomPage() {
     localStorage.getItem("lastRoomCode") ?? ""
   );
   const [name, setName] = useState("");
-  const [role, setRole] = useState<UserRole>("student");
+  const [role] = useState<UserRole>("student");
 
   const [connected, setConnected] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState("Not connected");

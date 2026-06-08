@@ -2,7 +2,6 @@ import {
   FaChalkboardTeacher,
   FaGamepad,
   FaLink,
-  FaPlug,
   FaTimes,
 } from "react-icons/fa";
 import type { UserRole } from "../types/quiz";
