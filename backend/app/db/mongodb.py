@@ -1,3 +1,4 @@
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
 
@@ -7,7 +8,11 @@ mongo_client: AsyncIOMotorClient | None = None
 async def connect_to_mongo():
     global mongo_client
 
-    mongo_client = AsyncIOMotorClient(settings.mongo_uri)
+    mongo_client = AsyncIOMotorClient(
+        settings.mongo_uri,
+        tls=True,
+        tlsCAFile=certifi.where()
+    )
 
     # This checks if MongoDB is actually reachable
     await mongo_client.admin.command("ping")
