@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
-from app.routers import health, quizzes, session, websocket
+from app.routers import health, quizzes, session, websocket, auth
 
 app = FastAPI(
     title=settings.app_name,
@@ -34,6 +34,7 @@ app.include_router(health.router)
 app.include_router(quizzes.router)
 app.include_router(session.router)
 app.include_router(websocket.router)
+app.include_router(auth.router)
 
 
 @app.get("/")

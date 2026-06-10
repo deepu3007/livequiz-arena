@@ -13,12 +13,14 @@ import {
 } from "react-icons/fa";
 import { createQuizApi, startSessionApi } from "../api/quizApi";
 import type { QuestionDraft } from "../types/quiz";
+import { useNavigate } from "react-router-dom";
 
 type QuizBuilderProps = { onRoomCreated: (roomCode: string) => void };
 
 function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
   const [builderTitle, setBuilderTitle] = useState("");
   const [builderDescription, setBuilderDescription] = useState("");
+  const navigate = useNavigate();
   const [questionDrafts, setQuestionDrafts] = useState<QuestionDraft[]>([
     {
       text: "",
@@ -86,7 +88,9 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
       setBuilderMessage("Quiz created! Now create a live room.");
       setMessageType("success");
     } catch (e) {
-      setBuilderMessage(e instanceof Error ? e.message : "Something went wrong");
+      setBuilderMessage(
+        e instanceof Error ? e.message : "Something went wrong",
+      );
       setMessageType("error");
     } finally {
       setCreatingQuiz(false);
@@ -107,11 +111,15 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
       const data = await startSessionApi(createdQuizId);
 
       setCreatedRoomCode(data.room_code);
+
+      navigate("/teacher");
       onRoomCreated(data.room_code);
       setBuilderMessage("Room created! Share the code with students.");
       setMessageType("success");
     } catch (e) {
-      setBuilderMessage(e instanceof Error ? e.message : "Something went wrong");
+      setBuilderMessage(
+        e instanceof Error ? e.message : "Something went wrong",
+      );
       setMessageType("error");
     } finally {
       setCreatingQuiz(false);
@@ -229,7 +237,7 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
                       value={opt}
                       onChange={(e) => {
                         const updated = q.options.map((o, i) =>
-                          i === oi ? e.target.value : o
+                          i === oi ? e.target.value : o,
                         );
 
                         updateDraft(qi, { ...q, options: updated });
@@ -263,7 +271,7 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
             <div className="timer-editor">
               <label>
                 <FaClock size={14} />
-              Time Limit
+                Time Limit
               </label>
 
               <input

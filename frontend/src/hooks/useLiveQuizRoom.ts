@@ -5,7 +5,7 @@ import type {
   QuizQuestion,
   RoomUser,
   UserRole,
-  WsEvent
+  WsEvent,
 } from "../types/quiz";
 
 type UseLiveQuizRoomOptions = {
@@ -14,11 +14,21 @@ type UseLiveQuizRoomOptions = {
 
 function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   const socketRef = useRef<WebSocket | null>(null);
+  const getNameFromToken = () => {
+    const token = sessionStorage.getItem("token");
+    if (!token) return "";
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.username ?? payload.sub ?? "";
+    } catch {
+      return "";
+    }
+  };
 
   const [roomCode, setRoomCode] = useState(
-    localStorage.getItem("lastRoomCode") ?? ""
+    sessionStorage.getItem("lastRoomCode") ?? "",
   );
-  const [name, setName] = useState("");
+  const [name, setName] = useState(getNameFromToken);
   const [role] = useState<UserRole>(defaultRole);
 
   const [connected, setConnected] = useState(false);
@@ -30,17 +40,17 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
 
   const [quizTitle, setQuizTitle] = useState("");
   const [quizStatus, setQuizStatus] = useState<"waiting" | "live" | "ended">(
-    "waiting"
+    "waiting",
   );
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(
-    null
+    null,
   );
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number | null>(
-    null
-  );
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<
+    number | null
+  >(null);
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(
-    null
+    null,
   );
   const [answerResult, setAnswerResult] = useState<{
     is_correct: boolean;
@@ -51,6 +61,17 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   const [scoreboard, setScoreboard] = useState<
     { name: string; score: number; rank: number }[]
   >([]);
+  const [quizFinished, setQuizFinished] = useState(false);
+
+  const [podium, setPodium] = useState<
+    { name: string; score: number; rank: number }[]
+  >([]);
+
+  const [finalLeaderboard, setFinalLeaderboard] = useState<
+    { name: string; score: number; rank: number }[]
+  >([]);
+
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
 
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [questionExpired, setQuestionExpired] = useState(false);
@@ -58,6 +79,11 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   const addEvent = (event: WsEvent) => {
     setEvents((previousEvents) => [event, ...previousEvents].slice(0, 80));
   };
+  useEffect(() => {
+    if (name.trim()) {
+      sessionStorage.setItem("username", name);
+    }
+  }, [name]);
 
   useEffect(() => {
     if (remainingSeconds === null) return;
@@ -80,17 +106,18 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   const connectToRoom = () => {
     const cleanRoomCode = roomCode.trim().toUpperCase();
     const cleanName = name.trim();
+    sessionStorage.setItem("role", role);
 
     if (!cleanRoomCode || !cleanName) {
       alert("Please enter both room code and name");
       return;
     }
 
-    localStorage.setItem("lastRoomCode", cleanRoomCode);
+    sessionStorage.setItem("lastRoomCode", cleanRoomCode);
 
     const wsBaseUrl = import.meta.env.VITE_WS_URL;
     const url = `${wsBaseUrl}/ws/${cleanRoomCode}?name=${encodeURIComponent(
-      cleanName
+      cleanName,
     )}&role=${role}`;
 
     const socket = new WebSocket(url);
@@ -103,8 +130,8 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
         type: "local_connected",
         payload: {
           room_code: cleanRoomCode,
-          message: "You connected successfully"
-        }
+          message: "You connected successfully",
+        },
       });
     };
 
@@ -142,7 +169,7 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
         setAnswerResult({
           is_correct: Boolean(data.payload?.is_correct),
           points: Number(data.payload?.points ?? 0),
-          new_score: Number(data.payload?.new_score ?? 0)
+          new_score: Number(data.payload?.new_score ?? 0),
         });
       }
 
@@ -153,7 +180,7 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
           option_counts: data.payload?.option_counts ?? {},
           correct_count: Number(data.payload?.correct_count ?? 0),
           wrong_count: Number(data.payload?.wrong_count ?? 0),
-          scoreboard: data.payload?.scoreboard ?? []
+          scoreboard: data.payload?.scoreboard ?? [],
         };
 
         setAnswerStats(stats);
@@ -170,6 +197,42 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
         setScoreboard(data.payload?.scoreboard ?? []);
       }
 
+      if (data.type === "quiz_finished") {
+        setQuizStatus("ended");
+
+        setCurrentQuestion(null);
+        setAnswerStats(null);
+        setAnswerResult(null);
+        setRemainingSeconds(null);
+        setQuestionExpired(false);
+
+        setQuizFinished(true);
+
+        setPodium(
+          (data.payload?.podium as {
+            name: string;
+            score: number;
+            rank: number;
+          }[]) ?? [],
+        );
+
+        setFinalLeaderboard(
+          (data.payload?.leaderboard as {
+            name: string;
+            score: number;
+            rank: number;
+          }[]) ?? [],
+        );
+
+        setScoreboard(
+          (data.payload?.leaderboard as {
+            name: string;
+            score: number;
+            rank: number;
+          }[]) ?? [],
+        );
+      }
+
       if (data.type === "answer_rejected") {
         alert(String(data.payload?.message ?? "Answer rejected"));
       }
@@ -183,8 +246,8 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
       addEvent({
         type: "local_disconnected",
         payload: {
-          message: "WebSocket connection closed"
-        }
+          message: "WebSocket connection closed",
+        },
       });
     };
 
@@ -194,8 +257,8 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
       addEvent({
         type: "local_error",
         payload: {
-          message: "Could not connect to WebSocket"
-        }
+          message: "Could not connect to WebSocket",
+        },
       });
     };
 
@@ -224,8 +287,8 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
     sendJson({
       type: "chat_message",
       payload: {
-        message: cleanMessage
-      }
+        message: cleanMessage,
+      },
     });
 
     setChatMessage("");
@@ -234,21 +297,21 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   const sendPing = () => {
     sendJson({
       type: "ping",
-      payload: {}
+      payload: {},
     });
   };
 
   const startQuiz = () => {
     sendJson({
       type: "teacher_start_quiz",
-      payload: {}
+      payload: {},
     });
   };
 
   const nextQuestion = () => {
     sendJson({
       type: "teacher_next_question",
-      payload: {}
+      payload: {},
     });
   };
 
@@ -266,8 +329,8 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
       type: "student_submit_answer",
       payload: {
         question_id: currentQuestion.id,
-        selected_option_index: optionIndex
-      }
+        selected_option_index: optionIndex,
+      },
     });
   };
 
@@ -303,7 +366,13 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
     sendPing,
     startQuiz,
     nextQuestion,
-    submitAnswer
+    submitAnswer,
+    quizFinished,
+    podium,
+    finalLeaderboard,
+
+    showLeaderboardModal,
+    setShowLeaderboardModal,
   };
 }
 

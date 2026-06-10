@@ -9,10 +9,8 @@ async def connect_to_mongo():
     global mongo_client
 
     mongo_client = AsyncIOMotorClient(
-        settings.mongo_uri,
-        tls=True,
-        tlsCAFile=certifi.where()
-    )
+    settings.mongo_uri
+)
 
     # This checks if MongoDB is actually reachable
     await mongo_client.admin.command("ping")

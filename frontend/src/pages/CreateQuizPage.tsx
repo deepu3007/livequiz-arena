@@ -22,7 +22,7 @@ function CreateQuizPage() {
         <div className="builder-workspace">
           <QuizBuilder
             onRoomCreated={(newRoomCode) => {
-              localStorage.setItem("lastRoomCode", newRoomCode);
+              sessionStorage.setItem("lastRoomCode", newRoomCode);
             }}
           />
         </div>

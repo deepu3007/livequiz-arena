@@ -8,11 +8,18 @@ import {
   FaTrophy,
 } from "react-icons/fa";
 import Navbar from "../components/Navbar";
+import AuthCard from "../components/AuthCard";
+import useLiveQuizRoom from "../hooks/useLiveQuizRoom";
 
 function HomePage() {
+  const room = useLiveQuizRoom({ defaultRole: "teacher" });
   return (
     <div className="app">
-      <Navbar />
+      <Navbar
+  connected={room.connected}
+  role="teacher"
+  username={room.name}
+/>
 
       <div className="page-content">
         <section className="page-hero home-hero" style={{ marginBottom: 24 }}>
@@ -20,7 +27,9 @@ function HomePage() {
 
           <div className="hero-inner">
             <div>
-              <p className="hero-eyebrow">Live Sports-Style Classroom Battles</p>
+              <p className="hero-eyebrow">
+                Live Sports-Style Classroom Battles
+              </p>
 
               <h1>
                 Live<span className="accent-yellow">Quiz</span>
@@ -33,47 +42,10 @@ function HomePage() {
                 push questions in real time, and watch the leaderboard light up.
               </p>
 
-              <div className="home-actions">
-                <Link to="/create">
-                  <button className="btn btn-red btn-lg">
-                    <FaEdit size={15} />
-                    Create Quiz
-                  </button>
-                </Link>
-
-                <Link to="/teacher">
-                  <button className="btn btn-yellow btn-lg">
-                    <FaChalkboardTeacher size={15} />
-                    Teacher Dashboard
-                  </button>
-                </Link>
-
-                <Link to="/student">
-                  <button
-                    className="btn btn-outline btn-lg"
-                    style={{
-                      color: "white",
-                      borderColor: "rgba(255,255,255,0.4)",
-                    }}
-                  >
-                    <FaGamepad size={15} />
-                    Join as Student
-                  </button>
-                </Link>
-              </div>
             </div>
 
-            <div className="home-feature-card">
-              <p className="section-label">Platform Features</p>
-
-              <ul>
-                <li>Real-time WebSocket quiz rooms</li>
-                <li>Teacher &amp; student roles</li>
-                <li>Live answer analytics</li>
-                <li>Live leaderboard &amp; charts</li>
-                <li>MongoDB-backed quiz sessions</li>
-                <li>Room chat &amp; event timeline</li>
-              </ul>
+            <div className="hero-right-column">
+              <AuthCard />
             </div>
           </div>
         </section>

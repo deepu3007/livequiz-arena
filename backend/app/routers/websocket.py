@@ -294,11 +294,16 @@ async def websocket_endpoint(
 
                     final_session = await db.sessions.find_one({"room_code": room_code})
 
+                    leaderboard = build_scoreboard(
+                        final_session.get("scores", {})
+                    )
+
                     await room_manager.broadcast_to_room(room_code, {
-                        "type": "quiz_ended",
+                        "type": "quiz_finished",
                         "payload": {
                             "room_code": room_code,
-                            "scoreboard": build_scoreboard(final_session.get("scores", {})),
+                            "podium": leaderboard[:3],
+                            "leaderboard": leaderboard,
                             "sent_at": datetime.now(timezone.utc)
                         }
                     })

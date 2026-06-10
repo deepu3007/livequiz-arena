@@ -14,14 +14,14 @@ import type {
   QuizQuestion,
   RoomUser,
   UserRole,
-  WsEvent
+  WsEvent,
 } from "../types/quiz";
 
 function LiveRoomPage() {
   const socketRef = useRef<WebSocket | null>(null);
 
   const [roomCode, setRoomCode] = useState(
-    localStorage.getItem("lastRoomCode") ?? ""
+    sessionStorage.getItem("lastRoomCode") ?? "",
   );
   const [name, setName] = useState("");
   const [role] = useState<UserRole>("student");
@@ -35,17 +35,17 @@ function LiveRoomPage() {
 
   const [quizTitle, setQuizTitle] = useState("");
   const [quizStatus, setQuizStatus] = useState<"waiting" | "live" | "ended">(
-    "waiting"
+    "waiting",
   );
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(
-    null
+    null,
   );
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number | null>(
-    null
-  );
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<
+    number | null
+  >(null);
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(
-    null
+    null,
   );
   const [answerResult, setAnswerResult] = useState<{
     is_correct: boolean;
@@ -91,11 +91,11 @@ function LiveRoomPage() {
       return;
     }
 
-    localStorage.setItem("lastRoomCode", cleanRoomCode);
+    sessionStorage.setItem("lastRoomCode", cleanRoomCode);
 
     const wsBaseUrl = import.meta.env.VITE_WS_URL;
     const url = `${wsBaseUrl}/ws/${cleanRoomCode}?name=${encodeURIComponent(
-      cleanName
+      cleanName,
     )}&role=${role}`;
 
     const socket = new WebSocket(url);
@@ -108,8 +108,8 @@ function LiveRoomPage() {
         type: "local_connected",
         payload: {
           room_code: cleanRoomCode,
-          message: "You connected successfully"
-        }
+          message: "You connected successfully",
+        },
       });
     };
 
@@ -147,7 +147,7 @@ function LiveRoomPage() {
         setAnswerResult({
           is_correct: Boolean(data.payload?.is_correct),
           points: Number(data.payload?.points ?? 0),
-          new_score: Number(data.payload?.new_score ?? 0)
+          new_score: Number(data.payload?.new_score ?? 0),
         });
       }
 
@@ -158,7 +158,7 @@ function LiveRoomPage() {
           option_counts: data.payload?.option_counts ?? {},
           correct_count: Number(data.payload?.correct_count ?? 0),
           wrong_count: Number(data.payload?.wrong_count ?? 0),
-          scoreboard: data.payload?.scoreboard ?? []
+          scoreboard: data.payload?.scoreboard ?? [],
         };
 
         setAnswerStats(stats);
@@ -188,8 +188,8 @@ function LiveRoomPage() {
       addEvent({
         type: "local_disconnected",
         payload: {
-          message: "WebSocket connection closed"
-        }
+          message: "WebSocket connection closed",
+        },
       });
     };
 
@@ -199,8 +199,8 @@ function LiveRoomPage() {
       addEvent({
         type: "local_error",
         payload: {
-          message: "Could not connect to WebSocket"
-        }
+          message: "Could not connect to WebSocket",
+        },
       });
     };
 
@@ -229,8 +229,8 @@ function LiveRoomPage() {
     sendJson({
       type: "chat_message",
       payload: {
-        message: cleanMessage
-      }
+        message: cleanMessage,
+      },
     });
 
     setChatMessage("");
@@ -239,21 +239,21 @@ function LiveRoomPage() {
   const sendPing = () => {
     sendJson({
       type: "ping",
-      payload: {}
+      payload: {},
     });
   };
 
   const startQuiz = () => {
     sendJson({
       type: "teacher_start_quiz",
-      payload: {}
+      payload: {},
     });
   };
 
   const nextQuestion = () => {
     sendJson({
       type: "teacher_next_question",
-      payload: {}
+      payload: {},
     });
   };
 
@@ -271,8 +271,8 @@ function LiveRoomPage() {
       type: "student_submit_answer",
       payload: {
         question_id: currentQuestion.id,
-        selected_option_index: optionIndex
-      }
+        selected_option_index: optionIndex,
+      },
     });
   };
 
@@ -298,7 +298,9 @@ function LiveRoomPage() {
           </Link>
         </div>
 
-        <div className={connected ? "status-pill online" : "status-pill offline"}>
+        <div
+          className={connected ? "status-pill online" : "status-pill offline"}
+        >
           <span />
           {connected ? "Live connection" : "Offline"}
         </div>

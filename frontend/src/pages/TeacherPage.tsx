@@ -1,5 +1,4 @@
 import Navbar from "../components/Navbar";
-import EventTimeline from "../components/EventTimeline";
 import Leaderboard from "../components/Leaderboard";
 import LiveAnalytics from "../components/LiveAnalytics";
 import LiveParticipants from "../components/LiveParticipants";
@@ -7,28 +6,49 @@ import LiveQuizPanel from "../components/LiveQuizPanel";
 import RoomChat from "../components/RoomChat";
 import RoomJoinCard from "../components/RoomJoinCard";
 import useLiveQuizRoom from "../hooks/useLiveQuizRoom";
+import QuizResultsModal from "../components/QuizResultsModal";
+import FinalLeaderboardModal from "../components/FinalLeaderboardModal";
+import { useEffect, useState } from "react";
+import { FaTrophy } from "react-icons/fa";
 
 function TeacherPage() {
   const room = useLiveQuizRoom({ defaultRole: "teacher" });
 
+  const [showResultsModal, setShowResultsModal] = useState(false);
+
+  useEffect(() => {
+    if (room.quizFinished) {
+      setShowResultsModal(true);
+    }
+  }, [room.quizFinished]);
+
   return (
     <div className="app">
-      <Navbar connected={room.connected} role="teacher" />
+      <Navbar connected={room.connected} role="teacher" username={room.name} />
+
       <div className="page-content">
-        {/* Page Hero */}
+        {/* Hero */}
         <section className="page-hero" style={{ marginBottom: 24 }}>
           <div className="hero-inner">
             <div>
               <p className="hero-eyebrow">Teacher Dashboard</p>
-              <h1>Host Live <span className="accent-red">Quiz</span></h1>
+
+              <h1>
+                Host Live <span className="accent-red">Quiz</span>
+              </h1>
+
               <p className="hero-description">
-                Connect to a room, start the quiz, push questions live, and watch
-                your students compete in real time.
+                Connect to a room, start the quiz, push questions live, and
+                watch your students compete in real time.
               </p>
             </div>
+
             <div
               className={`status-pill ${room.connected ? "online" : "offline"}`}
-              style={{ marginTop: 4, flexShrink: 0 }}
+              style={{
+                marginTop: 4,
+                flexShrink: 0,
+              }}
             >
               <span />
               {room.connected ? "Live Connection" : "Offline"}
@@ -36,9 +56,32 @@ function TeacherPage() {
           </div>
         </section>
 
-        {/* Dashboard Grid */}
-        <div className="dashboard-grid">
-          {/* Left Rail */}
+        {/* KPI Ribbon */}
+        <section className="teacher-kpi-ribbon">
+          <div className="kpi-card">
+            <span className="kpi-value">42</span>
+            <span className="kpi-label">Rooms Hosted</span>
+          </div>
+
+          <div className="kpi-card">
+            <span className="kpi-value">387</span>
+            <span className="kpi-label">Students Participated</span>
+          </div>
+
+          <div className="kpi-card">
+            <span className="kpi-value">76%</span>
+            <span className="kpi-label">Average Score</span>
+          </div>
+
+          <div className="kpi-card">
+            <span className="kpi-value">19</span>
+            <span className="kpi-label">Quizzes Created</span>
+          </div>
+        </section>
+
+        {/* Main Layout */}
+        <div className="teacher-dashboard-layout">
+          {/* LEFT RAIL */}
           <aside className="arena-left-rail">
             <RoomJoinCard
               roomCode={room.roomCode}
@@ -51,11 +94,12 @@ function TeacherPage() {
               onConnect={room.connectToRoom}
               onDisconnect={room.disconnectFromRoom}
             />
-            <LiveParticipants users={room.users} />
+
+            <Leaderboard scoreboard={room.scoreboard} />
           </aside>
 
-          {/* Center Stage */}
-          <section className="arena-stage">
+          {/* CENTER */}
+          <section className="teacher-quiz-panel">
             <LiveQuizPanel
               role={room.role}
               connected={room.connected}
@@ -73,26 +117,54 @@ function TeacherPage() {
               onNextQuestion={room.nextQuestion}
               onSubmitAnswer={room.submitAnswer}
             />
+
+            {room.quizFinished && (
+              <div className="lqa-results-button-wrapper">
+                <button
+                  className="lqa-view-results-btn"
+                  onClick={() => setShowResultsModal(true)}
+                >
+                  <FaTrophy />
+                  <span>View Results</span>
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* RIGHT */}
+          <aside className="teacher-analytics-panel">
             <LiveAnalytics
               answerStats={room.answerStats}
               currentQuestion={room.currentQuestion}
             />
-          </section>
-
-          {/* Right Rail */}
-          <aside className="arena-right-rail">
-            <Leaderboard scoreboard={room.scoreboard} />
-            <RoomChat
-              connected={room.connected}
-              chatMessage={room.chatMessage}
-              chatEvents={room.chatEvents}
-              onChatMessageChange={room.setChatMessage}
-              onSendChatMessage={room.sendChatMessage}
-              onPing={room.sendPing}
-            />
-            <EventTimeline events={room.events} />
+            <LiveParticipants users={room.users} />
           </aside>
         </div>
+        <QuizResultsModal
+          open={showResultsModal}
+          podium={room.podium}
+          onViewLeaderboard={() => {
+            setShowResultsModal(false);
+            room.setShowLeaderboardModal(true);
+          }}
+          onClose={() => setShowResultsModal(false)}
+        />
+
+        <FinalLeaderboardModal
+          open={room.showLeaderboardModal}
+          leaderboard={room.finalLeaderboard}
+          onClose={() => room.setShowLeaderboardModal(false)}
+        />
+
+        {/* Floating Chat */}
+        <RoomChat
+          connected={room.connected}
+          chatMessage={room.chatMessage}
+          chatEvents={room.chatEvents}
+          onChatMessageChange={room.setChatMessage}
+          onSendChatMessage={room.sendChatMessage}
+          onPing={room.sendPing}
+        />
       </div>
     </div>
   );
