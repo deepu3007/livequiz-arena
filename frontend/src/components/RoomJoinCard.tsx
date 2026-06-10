@@ -18,6 +18,20 @@ type RoomJoinCardProps = {
   onDisconnect: () => void;
 };
 
+function getLoggedInUsername() {
+  const token = sessionStorage.getItem("token");
+
+  if (!token) return "";
+
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+
+    return payload.username ?? payload.sub ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function RoomJoinCard({
   roomCode,
   name,
@@ -29,6 +43,12 @@ function RoomJoinCard({
   onConnect,
   onDisconnect,
 }: RoomJoinCardProps) {
+  const loggedInUsername = getLoggedInUsername();
+
+  const lockedName = loggedInUsername || name;
+
+  const shouldLockName = role === "student" || role === "teacher";
+
   const messageClass =
     connectionMessage.toLowerCase().includes("error") ||
     connectionMessage.toLowerCase().includes("fail")
@@ -37,9 +57,20 @@ function RoomJoinCard({
       ? "success"
       : "";
 
-  // ==========================
-  // CONNECTED VIEW
-  // ==========================
+  const handleConnect = () => {
+    if (shouldLockName && lockedName && lockedName !== name) {
+      onNameChange(lockedName);
+
+      setTimeout(() => {
+        onConnect();
+      }, 0);
+
+      return;
+    }
+
+    onConnect();
+  };
+
   if (connected) {
     return (
       <div className="room-status-bar">
@@ -48,16 +79,14 @@ function RoomJoinCard({
 
           <div>
             <div className="room-status-label">Connected</div>
+
             <div className="room-status-code">
               Room Code: <strong>{roomCode}</strong>
             </div>
           </div>
         </div>
 
-        <button
-          className="btn btn-red"
-          onClick={onDisconnect}
-        >
+        <button className="btn btn-red" onClick={onDisconnect}>
           <FaTimes size={12} />
           Disconnect
         </button>
@@ -65,55 +94,36 @@ function RoomJoinCard({
     );
   }
 
-  // ==========================
-  // DISCONNECTED VIEW
-  // ==========================
   return (
     <div className="card connection-card">
       <div className="card-stripe" />
 
       <div className="card-header">
         <div className="card-header-left">
-          <div className="card-subtitle">
-            Room Access
-          </div>
+          <div className="card-subtitle">Room Access</div>
 
           <div className="card-title">
             {role === "teacher" ? (
-              <FaChalkboardTeacher
-                size={22}
-                color="var(--blue)"
-              />
+              <FaChalkboardTeacher size={22} color="var(--blue)" />
             ) : (
-              <FaGamepad
-                size={22}
-                color="var(--blue)"
-              />
+              <FaGamepad size={22} color="var(--blue)" />
             )}
 
             Join as {role}
           </div>
         </div>
 
-        <span className="status-pill">
-          Ready
-        </span>
+        <span className="status-pill">Ready</span>
       </div>
 
       <div className="card-body connection-card-body">
         <div className="form-group">
-          <label className="form-label">
-            Room Code
-          </label>
+          <label className="form-label">Room Code</label>
 
           <input
             className="form-input code-input"
             value={roomCode}
-            onChange={(e) =>
-              onRoomCodeChange(
-                e.target.value.toUpperCase()
-              )
-            }
+            onChange={(e) => onRoomCodeChange(e.target.value.toUpperCase())}
             placeholder="A7K2P9"
             maxLength={8}
           />
@@ -125,26 +135,24 @@ function RoomJoinCard({
           </label>
 
           <input
-            className="form-input"
-            value={name}
-            onChange={(e) =>
-              onNameChange(e.target.value)
-            }
+            className="form-input locked-name-input"
+            value={lockedName}
+            readOnly={shouldLockName}
+            disabled={shouldLockName}
+            onChange={(e) => {
+              if (!shouldLockName) {
+                onNameChange(e.target.value);
+              }
+            }}
             placeholder={
-              role === "teacher"
-                ? "e.g. TeacherOne"
-                : "e.g. StudentOne"
+              role === "teacher" ? "e.g. TeacherOne" : "e.g. StudentOne"
             }
           />
         </div>
 
         <div className="role-badge">
           <span className="role-icon">
-            {role === "teacher" ? (
-              <FaChalkboardTeacher />
-            ) : (
-              <FaGamepad />
-            )}
+            {role === "teacher" ? <FaChalkboardTeacher /> : <FaGamepad />}
           </span>
 
           <span>
@@ -159,17 +167,13 @@ function RoomJoinCard({
           </span>
         </div>
 
-        <button
-          className="btn btn-primary w-full btn-lg"
-          onClick={onConnect}
-        >
+        <button className="btn btn-primary w-full btn-lg" onClick={handleConnect}>
           <FaLink size={14} />
           Connect to Room
         </button>
 
         <p className={`helper-text ${messageClass}`}>
-          {connectionMessage ||
-            "Enter code and name to connect"}
+          {connectionMessage || "Enter code and name to connect"}
         </p>
       </div>
     </div>

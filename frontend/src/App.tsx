@@ -5,6 +5,8 @@ import HomePage from "./pages/HomePage";
 import StudentPage from "./pages/StudentPage";
 import TeacherPage from "./pages/TeacherPage";
 import ProtectedRoute from "./api/ProtectedRoute";
+import StatsPage from "./pages/StatsPage";
+import StudentStatsPage from "./pages/StudentStatsPage";
 
 import "./App.css";
 
@@ -29,10 +31,26 @@ function App() {
         }
       />
       <Route
+        path="/stats"
+        element={
+          <ProtectedRoute role="teacher">
+            <StatsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/student"
         element={
           <ProtectedRoute role="student">
             <StudentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student-stats"
+        element={
+          <ProtectedRoute role="student">
+            <StudentStatsPage />
           </ProtectedRoute>
         }
       />

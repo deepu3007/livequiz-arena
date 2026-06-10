@@ -89,3 +89,141 @@ export type CreatedSessionResponse = {
     status: string;
   };
 };
+export type SavedQuiz = {
+  _id: string;
+  title: string;
+  description?: string | null;
+  question_count?: number;
+  questions?: QuizQuestion[];
+  created_at?: string;
+  updated_at?: string;
+};
+export type SavedQuizzesResponse = {
+  count: number;
+  quizzes: SavedQuiz[];
+};
+
+export type TeacherDashboardKpis = {
+  rooms_hosted: number;
+  students_participated: number;
+  average_score: number;
+  quizzes_created: number;
+};
+
+export type TeacherStatsFilters = {
+  quiz_id?: string;
+  room_code?: string;
+  student_name?: string;
+};
+
+export type StatsQuizFilter = {
+  _id: string;
+  title: string;
+  description?: string | null;
+  question_count: number;
+};
+
+export type StatsRoomFilter = {
+  room_code: string;
+  quiz_id: string;
+  quiz_title: string;
+  status: string;
+  created_at?: string;
+};
+
+export type TeacherStatsResponse = {
+  kpis: TeacherDashboardKpis;
+  filters: {
+    quizzes: StatsQuizFilter[];
+    rooms: StatsRoomFilter[];
+    students: string[];
+  };
+  charts: {
+    room_participation: {
+      room_code: string;
+      quiz_title: string;
+      participants: number;
+      average_score: number;
+    }[];
+    quiz_performance: {
+      quiz_id: string;
+      quiz_title: string;
+      average_score: number;
+      attempts: number;
+      rooms: number;
+    }[];
+    student_performance: {
+      student_name: string;
+      room_code: string;
+      quiz_title: string;
+      score: number;
+      score_percentage: number;
+      created_at?: string;
+    }[];
+    score_distribution: {
+      range: string;
+      count: number;
+    }[];
+    correct_wrong: {
+      name: string;
+      value: number;
+    }[];
+    top_students: {
+      student_name: string;
+      score: number;
+    }[];
+  };
+};
+export type StudentStatsFilters = {
+  quiz_id?: string;
+  room_code?: string;
+};
+
+export type StudentDashboardKpis = {
+  rooms_played: number;
+  quizzes_attempted: number;
+  average_score: number;
+  total_marks: number;
+};
+
+export type StudentStatsResponse = {
+  kpis: StudentDashboardKpis;
+  filters: {
+    quizzes: StatsQuizFilter[];
+    rooms: StatsRoomFilter[];
+  };
+  charts: {
+    performance_trend: {
+      room_code: string;
+      quiz_id: string;
+      quiz_title: string;
+      score: number;
+      score_percentage: number;
+      max_score: number;
+      created_at?: string;
+    }[];
+    quiz_performance: {
+      quiz_id: string;
+      quiz_title: string;
+      average_score: number;
+      attempts: number;
+    }[];
+    score_distribution: {
+      range: string;
+      count: number;
+    }[];
+    correct_wrong: {
+      name: string;
+      value: number;
+    }[];
+    recent_rooms: {
+      room_code: string;
+      quiz_id: string;
+      quiz_title: string;
+      score: number;
+      score_percentage: number;
+      max_score: number;
+      created_at?: string;
+    }[];
+  };
+};

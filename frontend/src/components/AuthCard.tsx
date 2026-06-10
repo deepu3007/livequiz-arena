@@ -48,10 +48,18 @@ export default function AuthCard() {
       } else {
         navigate("/student");
       }
-    } catch (err) {
-      setError(
-        mode === "login" ? "Invalid username or password" : "Signup failed",
-      );
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof (err as { message?: unknown }).message === "string"
+          ? (err as { message: string }).message
+          : mode === "login"
+            ? "Invalid username or password"
+            : "Signup failed";
+
+      setError(message);
     } finally {
       setLoading(false);
     }

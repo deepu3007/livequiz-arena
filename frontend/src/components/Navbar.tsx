@@ -1,10 +1,15 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+  FaChalkboardTeacher,
+  FaChartLine,
+  FaChartPie,
   FaEdit,
+  FaGamepad,
   FaSignOutAlt,
   FaUniversity,
   FaUserCircle,
 } from "react-icons/fa";
+
 
 type NavbarProps = {
   connected?: boolean;
@@ -15,7 +20,6 @@ function Navbar({ connected = false }: NavbarProps) {
   const navigate = useNavigate();
 
   const token = sessionStorage.getItem("token");
-  console.log("token: ", token);
   const isLoggedIn = !!token;
 
   let username = "";
@@ -24,14 +28,11 @@ function Navbar({ connected = false }: NavbarProps) {
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
-      console.log("payload:", payload);
+
       username = payload.username ?? payload.sub ?? "";
       role = payload.role ?? undefined;
-      console.log("username is:", username);
-      console.log("role is:", role);
-      console.log("payload:", payload);
     } catch {
-      // invalid token
+      sessionStorage.removeItem("token");
     }
   }
 
@@ -39,6 +40,9 @@ function Navbar({ connected = false }: NavbarProps) {
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
+    sessionStorage.removeItem("username");
+    sessionStorage.removeItem("role");
+    sessionStorage.removeItem("lastRoomCode");
     navigate("/");
   };
 
@@ -48,6 +52,7 @@ function Navbar({ connected = false }: NavbarProps) {
         <div className="navbar-logo-icon">
           <FaUniversity size={22} />
         </div>
+
         <span className="navbar-wordmark">
           Live<span>Quiz</span> Arena
         </span>
@@ -55,21 +60,63 @@ function Navbar({ connected = false }: NavbarProps) {
 
       <div className="navbar-links">
         {role === "teacher" && (
-          <Link
-            to="/create"
-            className={`navbar-link red-link ${
-              isActive("/create") ? "active" : ""
-            }`}
-          >
-            <FaEdit size={15} />
-            Create Quiz
-          </Link>
+          <>
+            <Link
+              to="/teacher"
+              className={`navbar-link red-link ${isActive("/teacher") ? "active" : ""
+                }`}
+            >
+              <FaChalkboardTeacher size={15} />
+              Teacher
+            </Link>
+
+            <Link
+              to="/create"
+              className={`navbar-link red-link ${isActive("/create") ? "active" : ""
+                }`}
+            >
+              <FaEdit size={15} />
+              Create Quiz
+            </Link>
+
+            <Link
+              to="/stats"
+              className={`navbar-link red-link ${isActive("/stats") ? "active" : ""
+                }`}
+            >
+              <FaChartPie size={15} />
+              Stats
+            </Link>
+          </>
+        )}
+
+        {role === "student" && (
+          <>
+            <Link
+              to="/student"
+              className={`navbar-link red-link ${isActive("/student") ? "active" : ""
+                }`}
+            >
+              <FaGamepad size={15} />
+              Student
+            </Link>
+
+            <Link
+              to="/student-stats"
+              className={`navbar-link red-link ${isActive("/student-stats") ? "active" : ""
+                }`}
+            >
+              <FaChartLine size={15} />
+              My Stats
+            </Link>
+          </>
         )}
       </div>
 
       <div className="navbar-right">
         <div className="navbar-status">
           <div className={`status-dot ${connected ? "online" : ""}`} />
+
           <span className={`status-text ${connected ? "online" : ""}`}>
             {connected
               ? `${role === "teacher" ? "Teaching" : "Playing"} Live`
@@ -81,6 +128,7 @@ function Navbar({ connected = false }: NavbarProps) {
           <>
             <div className="navbar-user">
               <FaUserCircle size={34} />
+
               <div>
                 <div className="navbar-username">{username}</div>
                 <div className="navbar-role">{role}</div>
@@ -98,4 +146,4 @@ function Navbar({ connected = false }: NavbarProps) {
   );
 }
 
-export default Navbar;
+export default Navbar; 

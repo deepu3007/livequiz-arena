@@ -9,18 +9,70 @@ import useLiveQuizRoom from "../hooks/useLiveQuizRoom";
 import QuizResultsModal from "../components/QuizResultsModal";
 import FinalLeaderboardModal from "../components/FinalLeaderboardModal";
 import { useEffect, useState } from "react";
-import { FaTrophy } from "react-icons/fa";
+import { getTeacherDashboardKpisApi } from "../api/quizApi";
+import type { TeacherDashboardKpis } from "../types/quiz";
+import {
+  FaChartLine,
+  FaDoorOpen,
+  FaQuestionCircle,
+  FaTrophy,
+  FaUsers,
+} from "react-icons/fa";
 
 function TeacherPage() {
   const room = useLiveQuizRoom({ defaultRole: "teacher" });
 
   const [showResultsModal, setShowResultsModal] = useState(false);
+  const [kpis, setKpis] = useState<TeacherDashboardKpis>({
+    rooms_hosted: 0,
+    students_participated: 0,
+    average_score: 0,
+    quizzes_created: 0,
+  });
+  const [kpisLoading, setKpisLoading] = useState(true);
+
+  const loadTeacherKpis = async () => {
+    try {
+      setKpisLoading(true);
+
+      const data = await getTeacherDashboardKpisApi();
+
+      setKpis(data);
+    } catch (error) {
+      console.error("Failed to load teacher KPIs:", error);
+    } finally {
+      setKpisLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTeacherKpis();
+  }, []);
 
   useEffect(() => {
     if (room.quizFinished) {
       setShowResultsModal(true);
+      loadTeacherKpis();
     }
   }, [room.quizFinished]);
+
+  useEffect(() => {
+    const loadTeacherKpis = async () => {
+      try {
+        setKpisLoading(true);
+
+        const data = await getTeacherDashboardKpisApi();
+
+        setKpis(data);
+      } catch (error) {
+        console.error("Failed to load teacher KPIs:", error);
+      } finally {
+        setKpisLoading(false);
+      }
+    };
+
+    loadTeacherKpis();
+  }, []);
 
   return (
     <div className="app">
@@ -59,26 +111,57 @@ function TeacherPage() {
         {/* KPI Ribbon */}
         <section className="teacher-kpi-ribbon">
           <div className="kpi-card">
-            <span className="kpi-value">42</span>
-            <span className="kpi-label">Rooms Hosted</span>
+            <div className="kpi-icon">
+              <FaDoorOpen />
+            </div>
+
+            <div className="kpi-content">
+              <span className="kpi-value">
+                {kpisLoading ? "..." : kpis.rooms_hosted}
+              </span>
+              <span className="kpi-label">Rooms Hosted</span>
+            </div>
           </div>
 
           <div className="kpi-card">
-            <span className="kpi-value">387</span>
-            <span className="kpi-label">Students Participated</span>
+            <div className="kpi-icon">
+              <FaUsers />
+            </div>
+
+            <div className="kpi-content">
+              <span className="kpi-value">
+                {kpisLoading ? "..." : kpis.students_participated}
+              </span>
+              <span className="kpi-label">Students Participated</span>
+            </div>
           </div>
 
           <div className="kpi-card">
-            <span className="kpi-value">76%</span>
-            <span className="kpi-label">Average Score</span>
+            <div className="kpi-icon">
+              <FaChartLine />
+            </div>
+
+            <div className="kpi-content">
+              <span className="kpi-value">
+                {kpisLoading ? "..." : `${kpis.average_score}%`}
+              </span>
+              <span className="kpi-label">Average Score</span>
+            </div>
           </div>
 
           <div className="kpi-card">
-            <span className="kpi-value">19</span>
-            <span className="kpi-label">Quizzes Created</span>
+            <div className="kpi-icon">
+              <FaQuestionCircle />
+            </div>
+
+            <div className="kpi-content">
+              <span className="kpi-value">
+                {kpisLoading ? "..." : kpis.quizzes_created}
+              </span>
+              <span className="kpi-label">Quizzes Created</span>
+            </div>
           </div>
         </section>
-
         {/* Main Layout */}
         <div className="teacher-dashboard-layout">
           {/* LEFT RAIL */}
@@ -94,7 +177,7 @@ function TeacherPage() {
               onConnect={room.connectToRoom}
               onDisconnect={room.disconnectFromRoom}
             />
-
+            
             <Leaderboard scoreboard={room.scoreboard} />
           </aside>
 
@@ -132,12 +215,12 @@ function TeacherPage() {
           </section>
 
           {/* RIGHT */}
-          <aside className="teacher-analytics-panel">
+          <aside className="arena-right-rail">
+          <LiveParticipants users={room.users} />
             <LiveAnalytics
               answerStats={room.answerStats}
               currentQuestion={room.currentQuestion}
             />
-            <LiveParticipants users={room.users} />
           </aside>
         </div>
         <QuizResultsModal

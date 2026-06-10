@@ -69,8 +69,6 @@ function StudentPage() {
               onConnect={room.connectToRoom}
               onDisconnect={room.disconnectFromRoom}
             />
-
-            <LiveParticipants users={room.users} />
           </aside>
 
           {/* CENTER */}
@@ -107,7 +105,8 @@ function StudentPage() {
           </section>
 
           {/* RIGHT */}
-          <aside className="teacher-analytics-panel">
+          <aside className="arena-right-rail">
+          <LiveParticipants users={room.users} />
             <Leaderboard scoreboard={room.scoreboard} />
           </aside>
         </div>

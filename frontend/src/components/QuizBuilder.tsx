@@ -1,26 +1,77 @@
-import { useState } from "react";
+import { type ChangeEvent, useRef, useState } from "react";
 import {
   FaCheck,
   FaClock,
   FaCopy,
   FaEdit,
+  FaDownload,
   FaExclamationTriangle,
+  FaFileExcel,
   FaPlus,
   FaRocket,
   FaSave,
   FaTrash,
   FaUndo,
+  FaUpload,
 } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import { createQuizApi, startSessionApi } from "../api/quizApi";
 import type { QuestionDraft } from "../types/quiz";
 import { useNavigate } from "react-router-dom";
 
 type QuizBuilderProps = { onRoomCreated: (roomCode: string) => void };
 
+type ExcelQuestionRow = {
+  [key: string]: string | number | undefined;
+};
+
+const TEMPLATE_HEADERS = [
+  "Question",
+  "Option A",
+  "Option B",
+  "Option C",
+  "Option D",
+  "Correct Answer",
+  "Time Limit Seconds",
+];
+
+const getExcelValue = (row: ExcelQuestionRow, keys: string[]) => {
+  for (const key of keys) {
+    const value = row[key];
+
+    if (value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+
+  return "";
+};
+
+const parseCorrectAnswer = (value: string, options: string[]) => {
+  const normalized = value.trim().toUpperCase();
+
+  if (["A", "B", "C", "D"].includes(normalized)) {
+    return normalized.charCodeAt(0) - 65;
+  }
+
+  const numeric = Number(normalized);
+
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 4) {
+    return numeric - 1;
+  }
+
+  const optionIndex = options.findIndex(
+    (option) => option.trim().toUpperCase() === normalized,
+  );
+
+  return optionIndex;
+};
+
 function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
   const [builderTitle, setBuilderTitle] = useState("");
   const [builderDescription, setBuilderDescription] = useState("");
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [questionDrafts, setQuestionDrafts] = useState<QuestionDraft[]>([
     {
       text: "",
@@ -37,6 +88,161 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
 
   const updateDraft = (idx: number, updated: QuestionDraft) =>
     setQuestionDrafts((prev) => prev.map((q, i) => (i === idx ? updated : q)));
+
+  const downloadExcelTemplate = () => {
+    const rows = [
+      TEMPLATE_HEADERS,
+      [
+        "Which language is used with FastAPI?",
+        "Python",
+        "Java",
+        "C++",
+        "Ruby",
+        "A",
+        30,
+      ],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    worksheet["!cols"] = [
+      { wch: 42 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 20 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Questions");
+    XLSX.writeFile(workbook, "livequiz_questions_template.xlsx");
+  };
+
+  const importQuestionsFromExcel = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+
+      const workbook = XLSX.read(buffer, { type: "array" });
+
+      const firstSheetName = workbook.SheetNames[0];
+
+      if (!firstSheetName) {
+        throw new Error("The workbook does not contain any sheets");
+      }
+
+      const worksheet = workbook.Sheets[firstSheetName];
+
+      const rows = XLSX.utils.sheet_to_json<ExcelQuestionRow>(worksheet, {
+        defval: "",
+      });
+
+      if (!rows.length) {
+        throw new Error("The template does not contain any question rows");
+      }
+
+      const importedQuestions: QuestionDraft[] = [];
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2;
+
+        const text = getExcelValue(row, ["Question", "Question Text"]);
+
+        const options = [
+          getExcelValue(row, ["Option A", "A"]),
+          getExcelValue(row, ["Option B", "B"]),
+          getExcelValue(row, ["Option C", "C"]),
+          getExcelValue(row, ["Option D", "D"]),
+        ];
+
+        const correctAnswer = getExcelValue(row, [
+          "Correct Answer",
+          "Correct Option",
+          "Answer",
+        ]);
+
+        const timerValue = getExcelValue(row, [
+          "Time Limit Seconds",
+          "Time Limit",
+          "Timer",
+        ]);
+
+        const isEmptyRow =
+          !text && options.every((option) => !option) && !correctAnswer;
+
+        if (isEmptyRow) {
+          return;
+        }
+
+        if (!text) {
+          throw new Error(`Row ${rowNumber}: question is required`);
+        }
+
+        if (options.some((option) => !option)) {
+          throw new Error(`Row ${rowNumber}: all four options are required`);
+        }
+
+        if (!correctAnswer) {
+          throw new Error(`Row ${rowNumber}: correct answer is required`);
+        }
+
+        const correct_option_index = parseCorrectAnswer(correctAnswer, options);
+
+        if (correct_option_index < 0 || correct_option_index > 3) {
+          throw new Error(
+            `Row ${rowNumber}: correct answer must be A, B, C, D, 1-4, or exact option text`,
+          );
+        }
+
+        const time_limit_seconds = timerValue ? Number(timerValue) : 30;
+
+        if (
+          !Number.isFinite(time_limit_seconds) ||
+          time_limit_seconds < 5 ||
+          time_limit_seconds > 300
+        ) {
+          throw new Error(
+            `Row ${rowNumber}: time limit must be between 5 and 300 seconds`,
+          );
+        }
+
+        importedQuestions.push({
+          text,
+          options,
+          correct_option_index,
+          time_limit_seconds,
+        });
+      });
+
+      if (!importedQuestions.length) {
+        throw new Error("No valid questions were found in the workbook");
+      }
+
+      setQuestionDrafts(importedQuestions);
+      setCreatedQuizId("");
+      setCreatedRoomCode("");
+      setBuilderMessage(
+        `Imported ${importedQuestions.length} question${importedQuestions.length === 1 ? "" : "s"
+        } from Excel. Review them, then create the quiz.`,
+      );
+      setMessageType("success");
+    } catch (error) {
+      setBuilderMessage(
+        error instanceof Error ? error.message : "Failed to import Excel file",
+      );
+      setMessageType("error");
+    } finally {
+      event.target.value = "";
+    }
+  };
 
   const validate = () => {
     if (!builderTitle.trim()) return "Quiz title is required";
@@ -186,6 +392,44 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
           </div>
         </div>
       </div>
+      <div className="card builder-card excel-import-card">
+        <div className="excel-import-copy">
+          <div className="card-subtitle">Bulk Upload</div>
+
+          <div className="excel-import-title">
+            <FaFileExcel size={20} color="var(--blue)" />
+            Import questions from Excel
+          </div>
+
+          <p>
+            Download the template, fill one question per row, then upload it to
+            auto-fill the quiz questions below.
+          </p>
+        </div>
+
+        <div className="excel-import-actions">
+          <button className="btn btn-ghost" onClick={downloadExcelTemplate}>
+            <FaDownload size={13} />
+            Download Template
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden-file-input"
+            onChange={importQuestionsFromExcel}
+          />
+
+          <button
+            className="btn btn-primary"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <FaUpload size={13} />
+            Upload Excel
+          </button>
+        </div>
+      </div>
 
       {questionDrafts.map((q, qi) => (
         <div className="card builder-card question-builder" key={qi}>
@@ -246,9 +490,8 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
                     />
 
                     <button
-                      className={`correct-option-btn ${
-                        q.correct_option_index === oi ? "active" : ""
-                      }`}
+                      className={`correct-option-btn ${q.correct_option_index === oi ? "active" : ""
+                        }`}
                       onClick={() =>
                         updateDraft(qi, { ...q, correct_option_index: oi })
                       }
@@ -336,9 +579,8 @@ function QuizBuilder({ onRoomCreated }: QuizBuilderProps) {
           <div className="builder-result">
             {builderMessage && (
               <p
-                className={`builder-message ${
-                  messageType === "error" ? "error" : "success"
-                }`}
+                className={`builder-message ${messageType === "error" ? "error" : "success"
+                  }`}
               >
                 {messageType === "success" && <FaCheck size={13} />}
                 {messageType === "error" && <FaExclamationTriangle size={13} />}
