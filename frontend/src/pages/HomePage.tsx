@@ -9,10 +9,8 @@ import {
 } from "react-icons/fa";
 import Navbar from "../components/Navbar";
 import AuthCard from "../components/AuthCard";
-import useLiveQuizRoom from "../hooks/useLiveQuizRoom";
 
 function HomePage() {
-  const room = useLiveQuizRoom({ defaultRole: "teacher" });
   return (
     <div className="app">
       <Navbar/>
