@@ -90,7 +90,7 @@ export default function AuthCard() {
         <select
           className="form-input"
           value={role}
-          onChange={(e) => setRole(e.target.value)}
+          onChange={(e) => setRole(e.target.value as UserRole)}
         >
           <option value="teacher">Teacher</option>
           <option value="student">Student</option>
