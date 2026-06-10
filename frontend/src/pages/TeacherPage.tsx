@@ -24,7 +24,7 @@ function TeacherPage() {
 
   return (
     <div className="app">
-      <Navbar connected={room.connected} role="teacher" username={room.name} />
+      <Navbar />
 
       <div className="page-content">
         {/* Hero */}

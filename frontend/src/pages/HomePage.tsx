@@ -15,11 +15,7 @@ function HomePage() {
   const room = useLiveQuizRoom({ defaultRole: "teacher" });
   return (
     <div className="app">
-      <Navbar
-  connected={room.connected}
-  role="teacher"
-  username={room.name}
-/>
+      <Navbar/>
 
       <div className="page-content">
         <section className="page-hero home-hero" style={{ marginBottom: 24 }}>
