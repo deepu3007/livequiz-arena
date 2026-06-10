@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 
 import { login, signup } from "../services/auth";
 
+type UserRole = "teacher" | "student";
+
 export default function AuthCard() {
   const navigate = useNavigate();
 
@@ -11,7 +13,7 @@ export default function AuthCard() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("student");
+  const [role, setRole] = useState<UserRole>("student");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
