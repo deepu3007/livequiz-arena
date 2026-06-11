@@ -75,6 +75,7 @@ function StudentPage() {
           <section className="teacher-quiz-panel">
             <LiveQuizPanel
               role={room.role}
+              isController={false}
               connected={room.connected}
               quizTitle={room.quizTitle}
               quizStatus={room.quizStatus}

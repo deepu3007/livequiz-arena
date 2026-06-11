@@ -327,6 +327,7 @@ function LiveRoomPage() {
           <LiveQuizPanel
             role={role}
             connected={connected}
+            isController={false}
             quizTitle={quizTitle}
             quizStatus={quizStatus}
             currentQuestion={currentQuestion}
