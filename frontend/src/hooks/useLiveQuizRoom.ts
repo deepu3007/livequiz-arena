@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type {
   AnswerStats,
   QuizQuestion,
+  PendingTeacherRequest,
   RoomUser,
   UserRole,
   WsEvent,
@@ -33,6 +34,11 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
 
   const [connected, setConnected] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState("Not connected");
+  const [isController, setIsController] = useState(false);
+  const [approvalPending, setApprovalPending] = useState(false);
+  const [pendingTeacherRequests, setPendingTeacherRequests] = useState<
+    PendingTeacherRequest[]
+  >([]);
 
   const [users, setUsers] = useState<RoomUser[]>([]);
   const [events, setEvents] = useState<WsEvent[]>([]);
@@ -106,6 +112,9 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   const connectToRoom = () => {
     const cleanRoomCode = roomCode.trim().toUpperCase();
     const cleanName = name.trim();
+    setIsController(false);
+    setApprovalPending(false);
+    setPendingTeacherRequests([]);
     sessionStorage.setItem("role", role);
 
     if (!cleanRoomCode || !cleanName) {
@@ -138,6 +147,78 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
     socket.onmessage = (event) => {
       const data: WsEvent = JSON.parse(event.data);
       addEvent(data);
+      if (data.type === "room_access") {
+        setIsController(Boolean(data.payload?.is_controller));
+        setApprovalPending(false);
+      }
+
+      if (data.type === "approval_pending") {
+        setApprovalPending(true);
+        setConnectionMessage(
+          String(
+            data.payload?.message ??
+            "Waiting for the room creator to approve your join request.",
+          ),
+        );
+      }
+
+      if (data.type === "teacher_approval_denied") {
+        alert(String(data.payload?.message ?? "Your teacher join request was denied."));
+        setApprovalPending(false);
+        socket.close();
+      }
+
+      if (data.type === "teacher_approval_approved") {
+        setApprovalPending(false);
+        setConnectionMessage("Approved. Connected as teacher viewer.");
+      }
+
+      if (data.type === "teacher_join_request" && data.payload?.teacher_name) {
+        const teacherName = String(data.payload.teacher_name);
+
+        setPendingTeacherRequests((previousRequests) => {
+          if (
+            previousRequests.some(
+              (request) => request.teacher_name === teacherName,
+            )
+          ) {
+            return previousRequests;
+          }
+
+          return [
+            ...previousRequests,
+            {
+              teacher_name: teacherName,
+              role: "teacher",
+            },
+          ];
+        });
+      }
+
+      if (data.type === "teacher_join_requests") {
+        setPendingTeacherRequests(
+          ((data.payload?.requests as PendingTeacherRequest[]) ?? []).filter(
+            (request) => Boolean(request.teacher_name),
+          ),
+        );
+      }
+
+      if (
+        data.type === "teacher_join_request_cleared" &&
+        data.payload?.teacher_name
+      ) {
+        const teacherName = String(data.payload.teacher_name);
+
+        setPendingTeacherRequests((previousRequests) =>
+          previousRequests.filter(
+            (request) => request.teacher_name !== teacherName,
+          ),
+        );
+      }
+
+      if (data.type === "error" && data.payload?.message) {
+        alert(String(data.payload.message));
+      }
 
       if (data.type === "room_state" && data.payload?.users) {
         setUsers(data.payload.users);
@@ -241,6 +322,9 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
     socket.onclose = () => {
       setConnected(false);
       setUsers([]);
+      setIsController(false);
+      setApprovalPending(false);
+      setPendingTeacherRequests([]);
       setConnectionMessage("Disconnected from room");
 
       addEvent({
@@ -302,6 +386,11 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   };
 
   const startQuiz = () => {
+    if (!isController) {
+      alert("Only the room creator can start the quiz");
+      return;
+    }
+
     sendJson({
       type: "teacher_start_quiz",
       payload: {},
@@ -309,10 +398,34 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
   };
 
   const nextQuestion = () => {
+    if (!isController) {
+      alert("Only the room creator can control the quiz");
+      return;
+    }
+
     sendJson({
       type: "teacher_next_question",
       payload: {},
     });
+  };
+
+  const respondToTeacherJoinRequest = (
+    teacherName: string,
+    approved: boolean,
+  ) => {
+    sendJson({
+      type: "teacher_approval_response",
+      payload: {
+        teacher_name: teacherName,
+        approved,
+      },
+    });
+
+    setPendingTeacherRequests((previousRequests) =>
+      previousRequests.filter(
+        (request) => request.teacher_name !== teacherName,
+      ),
+    );
   };
 
   const submitAnswer = (optionIndex: number) => {
@@ -373,6 +486,10 @@ function useLiveQuizRoom({ defaultRole }: UseLiveQuizRoomOptions) {
 
     showLeaderboardModal,
     setShowLeaderboardModal,
+    isController,
+    approvalPending,
+    pendingTeacherRequests,
+    respondToTeacherJoinRequest,
   };
 }
 

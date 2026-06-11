@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -8,6 +9,8 @@ from app.schemas.ws_messages import WebSocketIncomingMessage
 from app.services.room_manager import room_manager
 
 router = APIRouter(tags=["WebSocket"])
+PENDING_TEACHER_REQUESTS: dict[str, dict[str, dict]] = {}
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -16,15 +19,14 @@ def utc_now() -> datetime:
 def ensure_utc_aware(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
-
     return value.astimezone(timezone.utc)
 
 
 def is_question_expired(question: dict, question_started_at: datetime) -> bool:
     started_at = ensure_utc_aware(question_started_at)
     elapsed_seconds = (utc_now() - started_at).total_seconds()
-
     return elapsed_seconds > question["time_limit_seconds"]
+
 
 def remove_correct_answer(question: dict) -> dict:
     return {
@@ -33,6 +35,23 @@ def remove_correct_answer(question: dict) -> dict:
         "options": question["options"],
         "time_limit_seconds": question["time_limit_seconds"]
     }
+
+
+async def send_room_access(
+    websocket: WebSocket,
+    room_code: str,
+    created_by: str,
+    is_controller: bool
+):
+    await room_manager.send_to_websocket(websocket, {
+        "type": "room_access",
+        "payload": {
+            "room_code": room_code,
+            "created_by": created_by,
+            "is_controller": is_controller,
+            "sent_at": utc_now()
+        }
+    })
 
 
 def build_answer_stats(session: dict, question_id: str, option_count: int) -> dict:
@@ -126,12 +145,83 @@ async def websocket_endpoint(
         await websocket.close(code=1008)
         return
 
+    created_by = session.get("created_by")
+    is_controller = role == "teacher" and name == created_by
+
     user = {
         "name": name,
-        "role": role
+        "role": role,
+        "is_controller": is_controller
     }
 
-    await room_manager.connect(room_code, websocket, user)
+    if role == "teacher" and not is_controller:
+        await websocket.accept()
+
+        approval_event = asyncio.Event()
+
+        PENDING_TEACHER_REQUESTS.setdefault(room_code, {})[name] = {
+            "name": name,
+            "role": role,
+            "websocket": websocket,
+            "approved": None,
+            "event": approval_event
+        }
+
+        await room_manager.send_to_websocket(websocket, {
+            "type": "approval_pending",
+            "payload": {
+                "room_code": room_code,
+                "message": "Waiting for the room creator to approve your join request.",
+                "sent_at": utc_now()
+            }
+        })
+
+        await room_manager.broadcast_to_room(room_code, {
+            "type": "teacher_join_request",
+            "payload": {
+                "room_code": room_code,
+                "teacher_name": name,
+                "message": f"{name} wants to join this room as a teacher viewer.",
+                "sent_at": utc_now()
+            }
+        })
+
+        await approval_event.wait()
+
+        pending_request = PENDING_TEACHER_REQUESTS.get(room_code, {}).pop(name, None)
+
+        if not pending_request or pending_request.get("approved") is not True:
+            await room_manager.send_to_websocket(websocket, {
+                "type": "teacher_approval_denied",
+                "payload": {
+                    "room_code": room_code,
+                    "message": "The room creator denied your join request.",
+                    "sent_at": utc_now()
+                }
+            })
+            await websocket.close(code=1008)
+            return
+
+        await room_manager.send_to_websocket(websocket, {
+            "type": "teacher_approval_approved",
+            "payload": {
+                "room_code": room_code,
+                "message": "Your join request was approved.",
+                "sent_at": utc_now()
+            }
+        })
+
+        await room_manager.connect_existing(room_code, websocket, user)
+
+    else:
+        await room_manager.connect(room_code, websocket, user)
+
+    await send_room_access(
+        websocket=websocket,
+        room_code=room_code,
+        created_by=created_by,
+        is_controller=is_controller
+    )
 
     if role == "student":
         await db.sessions.update_one(
@@ -163,6 +253,25 @@ async def websocket_endpoint(
         room_manager.build_room_state_message(room_code)
     )
 
+    if is_controller:
+        pending_requests = [
+            {
+                "teacher_name": request["name"],
+                "role": request["role"]
+            }
+            for request in PENDING_TEACHER_REQUESTS.get(room_code, {}).values()
+        ]
+
+        if pending_requests:
+            await room_manager.send_to_websocket(websocket, {
+                "type": "teacher_join_requests",
+                "payload": {
+                    "room_code": room_code,
+                    "requests": pending_requests,
+                    "sent_at": utc_now()
+                }
+            })
+
     try:
         while True:
             raw_message = await websocket.receive_json()
@@ -179,7 +288,48 @@ async def websocket_endpoint(
                 })
                 continue
 
-            if incoming.type == "chat_message":
+            if incoming.type == "teacher_approval_response":
+                session = await db.sessions.find_one({"room_code": room_code})
+
+                if role != "teacher" or session.get("created_by") != name:
+                    await room_manager.send_to_websocket(websocket, {
+                        "type": "error",
+                        "payload": {
+                            "message": "Only the room creator can approve teacher join requests"
+                        }
+                    })
+                    continue
+
+                teacher_name = incoming.payload.get("teacher_name")
+                approved = bool(incoming.payload.get("approved"))
+
+                pending_request = PENDING_TEACHER_REQUESTS.get(room_code, {}).get(teacher_name)
+
+                if pending_request is None:
+                    await room_manager.send_to_websocket(websocket, {
+                        "type": "error",
+                        "payload": {
+                            "message": "Teacher join request not found"
+                        }
+                    })
+                    continue
+
+                pending_request["approved"] = approved
+                pending_request["event"].set()
+
+                await room_manager.broadcast_to_room(room_code, {
+                    "type": "teacher_join_request_cleared",
+                    "payload": {
+                        "room_code": room_code,
+                        "teacher_name": teacher_name,
+                        "approved": approved,
+                        "sent_at": utc_now()
+                    }
+                })
+
+                continue
+
+            elif incoming.type == "chat_message":
                 message = incoming.payload.get("message")
 
                 if not message:
@@ -203,16 +353,17 @@ async def websocket_endpoint(
                 })
 
             elif incoming.type == "teacher_start_quiz":
-                if role != "teacher":
+                session = await db.sessions.find_one({"room_code": room_code})
+
+                if role != "teacher" or session.get("created_by") != name:
                     await room_manager.send_to_websocket(websocket, {
                         "type": "error",
                         "payload": {
-                            "message": "Only teachers can start the quiz"
+                            "message": "Only the room creator can start the quiz"
                         }
                     })
                     continue
 
-                session = await db.sessions.find_one({"room_code": room_code})
                 quiz = await db.quizzes.find_one({"_id": session["quiz_id"]})
 
                 if quiz is None:
@@ -223,19 +374,20 @@ async def websocket_endpoint(
                         }
                     })
                     continue
+
                 question_started_at = utc_now()
 
                 await db.sessions.update_one(
-                        {"room_code": room_code},
-                        {
-                            "$set": {
-                                "status": "live",
-                                "current_question_index": 0,
-                                "current_question_started_at": question_started_at,
-                                "started_at": question_started_at
-                            }
+                    {"room_code": room_code},
+                    {
+                        "$set": {
+                            "status": "live",
+                            "current_question_index": 0,
+                            "current_question_started_at": question_started_at,
+                            "started_at": question_started_at
                         }
-                    )
+                    }
+                )
 
                 updated_session = await db.sessions.find_one({"room_code": room_code})
 
@@ -253,16 +405,17 @@ async def websocket_endpoint(
                 await send_current_question(room_code, updated_session, quiz)
 
             elif incoming.type == "teacher_next_question":
-                if role != "teacher":
+                session = await db.sessions.find_one({"room_code": room_code})
+
+                if role != "teacher" or session.get("created_by") != name:
                     await room_manager.send_to_websocket(websocket, {
                         "type": "error",
                         "payload": {
-                            "message": "Only teachers can move to the next question"
+                            "message": "Only the room creator can control the quiz"
                         }
                     })
                     continue
 
-                session = await db.sessions.find_one({"room_code": room_code})
                 quiz = await db.quizzes.find_one({"_id": session["quiz_id"]})
 
                 if session["status"] != "live":
@@ -507,3 +660,22 @@ async def websocket_endpoint(
             room_code,
             room_manager.build_room_state_message(room_code)
         )
+
+        if is_controller:
+            pending_requests = [
+                {
+                    "teacher_name": request["name"],
+                    "role": request["role"]
+                }
+                for request in PENDING_TEACHER_REQUESTS.get(room_code, {}).values()
+            ]
+
+            if pending_requests:
+                await room_manager.send_to_websocket(websocket, {
+                    "type": "teacher_join_requests",
+                    "payload": {
+                        "room_code": room_code,
+                        "requests": pending_requests,
+                        "sent_at": utc_now()
+                    }
+                })

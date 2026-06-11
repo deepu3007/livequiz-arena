@@ -3,6 +3,12 @@ export type UserRole = "teacher" | "student";
 export type RoomUser = {
   name: string;
   role: UserRole;
+  is_controller?: boolean;
+};
+
+export type PendingTeacherRequest = {
+  teacher_name: string;
+  role?: UserRole;
 };
 
 export type QuizQuestion = {

@@ -12,6 +12,7 @@ import type { AnswerStats, QuizQuestion, UserRole } from "../types/quiz";
 type LiveQuizPanelProps = {
   role: UserRole;
   connected: boolean;
+  isController: boolean;
   quizTitle: string;
   quizStatus: "waiting" | "live" | "ended";
   currentQuestion: QuizQuestion | null;
@@ -27,8 +28,10 @@ type LiveQuizPanelProps = {
   onSubmitAnswer: (optionIndex: number) => void;
 };
 
+
 function LiveQuizPanel({
   role,
+  isController,
   connected,
   quizTitle,
   quizStatus,
@@ -48,9 +51,9 @@ function LiveQuizPanel({
     ? remainingSeconds === null
       ? 100
       : Math.max(
-          0,
-          Math.round((remainingSeconds / currentQuestion.time_limit_seconds) * 100)
-        )
+        0,
+        Math.round((remainingSeconds / currentQuestion.time_limit_seconds) * 100)
+      )
     : 0;
 
   const timerUrgent =
@@ -65,10 +68,10 @@ function LiveQuizPanel({
   const timerBarClass = questionExpired
     ? "expired"
     : timerUrgent
-    ? "urgent"
-    : timerWarning
-    ? "warning"
-    : "";
+      ? "urgent"
+      : timerWarning
+        ? "warning"
+        : "";
 
   const getStatusLabel = () => {
     if (quizStatus === "waiting") {
@@ -115,7 +118,7 @@ function LiveQuizPanel({
         </span>
       </div>
 
-      {role === "teacher" && (
+      {role === "teacher" && isController && (
         <div className="teacher-controls">
           <button
             className="btn btn-primary"
@@ -125,6 +128,12 @@ function LiveQuizPanel({
             <FaPlay size={14} />
             Start Quiz
           </button>
+          {role === "teacher" && connected && !isController && (
+            <div className="teacher-viewer-banner">
+              You are connected as a teacher viewer. Only the room creator can control
+              this quiz.
+            </div>
+          )}
 
           <button
             className="btn btn-yellow"
@@ -148,7 +157,9 @@ function LiveQuizPanel({
 
             <p>
               {role === "teacher"
-                ? "Connect to a room and click Start Quiz to begin."
+                ? isController
+                  ? "Connect to a room and click Start Quiz to begin."
+                  : "Waiting for the room creator to start the quiz. You can watch the live quiz here."
                 : "The quiz will start once your teacher begins the session."}
             </p>
           </div>
@@ -174,9 +185,8 @@ function LiveQuizPanel({
               </span>
 
               <span
-                className={`timer-pill ${
-                  questionExpired ? "expired" : timerUrgent ? "urgent" : ""
-                }`}
+                className={`timer-pill ${questionExpired ? "expired" : timerUrgent ? "urgent" : ""
+                  }`}
               >
                 <FaClock size={13} />
                 {questionExpired
@@ -230,9 +240,8 @@ function LiveQuizPanel({
 
             {answerResult && role === "student" && (
               <div
-                className={`answer-result ${
-                  answerResult.is_correct ? "correct" : "wrong"
-                }`}
+                className={`answer-result ${answerResult.is_correct ? "correct" : "wrong"
+                  }`}
               >
                 <span className="answer-result-icon">
                   {answerResult.is_correct ? (

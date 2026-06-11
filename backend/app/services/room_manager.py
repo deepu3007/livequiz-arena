@@ -41,6 +41,22 @@ class RoomManager:
 
         if len(self.rooms[room_code]) == 0:
             del self.rooms[room_code]
+    
+    async def connect_existing(
+        self,
+        room_code: str,
+        websocket: WebSocket,
+        user: dict
+    ):
+        room_code = room_code.upper()
+
+        if room_code not in self.rooms:
+            self.rooms[room_code] = []
+
+        self.rooms[room_code].append({
+            "websocket": websocket,
+            "user": user
+        })
 
     def get_room_users(self, room_code: str) -> list[dict[str, str]]:
         room_code = room_code.upper()

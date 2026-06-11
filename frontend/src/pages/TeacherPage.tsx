@@ -12,9 +12,11 @@ import { useEffect, useState } from "react";
 import { getTeacherDashboardKpisApi } from "../api/quizApi";
 import type { TeacherDashboardKpis } from "../types/quiz";
 import {
+  FaCheck,
   FaChartLine,
   FaDoorOpen,
   FaQuestionCircle,
+  FaTimes,
   FaTrophy,
   FaUsers,
 } from "react-icons/fa";
@@ -177,7 +179,61 @@ function TeacherPage() {
               onConnect={room.connectToRoom}
               onDisconnect={room.disconnectFromRoom}
             />
-            
+            {room.isController && room.pendingTeacherRequests.length > 0 && (
+              <div className="card teacher-approval-card">
+                <div className="card-stripe" />
+
+                <div className="card-header">
+                  <div className="card-header-left">
+                    <div className="card-subtitle">Teacher Requests</div>
+                    <div className="card-title">Approval Needed</div>
+                  </div>
+                </div>
+
+                <div className="teacher-approval-list">
+                  {room.pendingTeacherRequests.map((request) => (
+                    <div
+                      className="teacher-approval-item"
+                      key={request.teacher_name}
+                    >
+                      <div>
+                        <strong>{request.teacher_name}</strong>
+                        <p>Wants to join as teacher viewer</p>
+                      </div>
+
+                      <div className="teacher-approval-actions">
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() =>
+                            room.respondToTeacherJoinRequest(
+                              request.teacher_name,
+                              true,
+                            )
+                          }
+                        >
+                          <FaCheck />
+                          Approve
+                        </button>
+
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() =>
+                            room.respondToTeacherJoinRequest(
+                              request.teacher_name,
+                              false,
+                            )
+                          }
+                        >
+                          <FaTimes />
+                          Deny
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <Leaderboard scoreboard={room.scoreboard} />
           </aside>
 
@@ -185,6 +241,7 @@ function TeacherPage() {
           <section className="teacher-quiz-panel">
             <LiveQuizPanel
               role={room.role}
+              isController={room.isController}
               connected={room.connected}
               quizTitle={room.quizTitle}
               quizStatus={room.quizStatus}
@@ -216,7 +273,7 @@ function TeacherPage() {
 
           {/* RIGHT */}
           <aside className="arena-right-rail">
-          <LiveParticipants users={room.users} />
+            <LiveParticipants users={room.users} />
             <LiveAnalytics
               answerStats={room.answerStats}
               currentQuestion={room.currentQuestion}

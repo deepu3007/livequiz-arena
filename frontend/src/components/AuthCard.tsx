@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FaLock, FaUser } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaLock, FaUser } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 import { login, signup } from "../services/auth";
@@ -17,8 +17,12 @@ export default function AuthCard() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
+
+    if (loading) return;
     try {
       setLoading(true);
       setError("");
@@ -68,7 +72,7 @@ export default function AuthCard() {
   };
 
   return (
-    <div className="auth-card">
+    <form className="auth-card" onSubmit={handleSubmit}>
       <h3>{mode === "login" ? "Login" : "Create Account"}</h3>
 
       <input
@@ -78,13 +82,24 @@ export default function AuthCard() {
         onChange={(e) => setUsername(e.target.value)}
       />
 
-      <input
-        className="form-input"
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <div className="password-input-wrap">
+        <input
+          className="form-input password-input"
+          type={showPassword ? "text" : "password"}
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          type="button"
+          className="password-toggle-btn"
+          onClick={() => setShowPassword((prev) => !prev)}
+          aria-label={showPassword ? "Hide password" : "Show password"}
+        >
+          {showPassword ? <FaEyeSlash /> : <FaEye />}
+        </button>
+      </div>
 
       {mode === "signup" && (
         <select
@@ -98,8 +113,8 @@ export default function AuthCard() {
       )}
 
       <button
+        type="submit"
         className="btn btn-primary w-full"
-        onClick={handleSubmit}
         disabled={loading}
       >
         {mode === "login" ? (
@@ -128,6 +143,7 @@ export default function AuthCard() {
       )}
 
       <button
+        type="button"
         className="btn btn-ghost w-full"
         onClick={() => {
           setError("");
@@ -136,6 +152,6 @@ export default function AuthCard() {
       >
         {mode === "login" ? "Create Account" : "Already have an account?"}
       </button>
-    </div>
+    </form>
   );
 }

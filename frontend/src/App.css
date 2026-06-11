@@ -2475,6 +2475,7 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 500px;
 }
 
 .auth-card {
@@ -3176,6 +3177,7 @@ body::before {
   position: sticky;
   top: 90px;
   overflow: hidden;
+  min-height: 500px;
 }
 
 .stats-filter-header {
@@ -3546,4 +3548,95 @@ body::before {
   flex: 0 0 auto;
   margin-top: 2px;
   color: var(--blue);
+}
+.password-input-wrap {
+  position: relative;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.password-input-wrap .form-input {
+  margin-bottom: 0;
+}
+
+.auth-card .password-input {
+  padding-right: 44px;
+}
+
+.password-toggle-btn {
+  position: absolute !important;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  margin: 0 !important;
+
+  width: 28px;
+  height: 28px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+
+  z-index: 2;
+}
+
+.password-toggle-btn:hover {
+  color: var(--blue);
+}
+
+.password-toggle-btn:focus {
+  outline: none;
+}
+.teacher-viewer-banner {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--blue-soft);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.teacher-approval-card {
+  margin-top: 16px;
+}
+
+.teacher-approval-list {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.teacher-approval-item {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.teacher-approval-item strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.teacher-approval-item p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.teacher-approval-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
